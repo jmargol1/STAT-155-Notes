@@ -1,0 +1,90 @@
+---
+title: "3. Linear Models"
+author: "Joe Margolis"
+date: "11/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(palmerpenguins)
+library(broom)
+```
+
+# Explore Penguins
+```{r}
+head(penguins)
+names(penguins)
+nrow(penguins)
+```
+```{r}
+penguins %>%
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point() + 
+  labs(x = "Flipper Length (mm)", y = "Body Mass (grams)") +
+  theme_minimal()
+
+penguins %>%
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point() + 
+  geom_smooth(method = "lm")
+  labs(x = "Flipper Length (mm)", y = "Body Mass (grams)") +
+  theme_minimal()
+  
+mod <- lm(body_mass_g ~ flipper_length_mm, data = penguins)
+summary(mod)
+
+penguins %>% with(lm(body_mass_g ~ flipper_length_mm)) %>% summary()
+
+penguins %>%
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point() + 
+  geom_abline(intercept = -5780.831, slope = 49.686, color = "Green")
+  labs(x = "Flipper Length (mm)", y = "Body Mass (grams)") +
+  theme_minimal()
+```
+
+# Model Evaluation
+
+```{r}
+mod <- penguins %>% with(lm(body_mass_g ~ flipper_length_mm))
+glance(mod)
+
+tidy(mod)
+
+augment(mod) %>%
+  ggplot(aes(x = flipper_length_mm, y = .resid)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  geom_hline(yintercept = 0) +
+  labs(x = 'Flipper Length', y = 'Residual') +
+  theme_minimal()
+
+augment(mod) %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  geom_hline(yintercept = 0) +
+  labs(x = 'Fitted', y = 'Residual') +
+  theme_minimal()
+
+augment(mod) %>%
+  ggplot(aes(x = .resid)) +
+  geom_histogram()
+
+augment(mod) %>%
+  count(.redsid < 800 & .resid > 800) %>%
+  mutate(prop = n/sum(n))
+```
+# Prediction
+
+```{r}
+mod %>%
+  predict(newdata = data.frame(flipper_length_mm = 200))
+
+mod %>%
+  predict(newdata = data.frame(flipper_length_mm = 0))
+```
+

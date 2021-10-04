@@ -1,0 +1,26 @@
+---
+title: "1 R Code for Importing and Subsetting Data"
+author: "Joe Margolis"
+date: "10/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+polls <- read_csv("president_polls.csv")
+```
+```{r}
+head(polls)
+```
+```{r}
+library(dplyr)
+polls %>% slice(1:10)
+polls %>% slice(10)
+polls %>% filter(state == "Minnesota")
+polls %>% select(candidate_name, pct)
+```
+

@@ -1,0 +1,223 @@
+---
+title: "4. Multiple Linear Regression Models"
+author: "Joe Margolis"
+date: "Fall 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(palmerpenguins)
+library(gapminder) #install.packages('gapminder')
+library(dplyr)
+library(ggplot2)
+library(broom)
+source('ggavplot.R')
+
+```
+
+## Penguin Models
+
+```{r}
+# Start with Only Categorical Predictors
+
+penguins %>% 
+  filter(!is.na(sex)) %>%
+  ggplot(aes(x = sex, y = body_mass_g)) +
+  geom_boxplot() + 
+  facet_wrap(. ~ species) +
+  labs(x = 'Sex', y = 'Body Mass (g)') + 
+  theme_minimal()
+```
+
+```{r}
+peng.mod1 <- penguins %>% with(lm(body_mass_g ~ sex + species))
+summary(peng.mod1)
+glance(peng.mod1)
+tidy(peng.mod1)
+```
+
+```{r}
+peng.mod1 %>% 
+  augment() %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(x = 'Predicted Mass',y = 'Residuals') + 
+  theme_minimal()
+```
+
+```{r}
+peng.mod1 %>% 
+  augment() %>%
+  ggplot(aes(x = sex, y = .resid)) +
+  geom_boxplot() + 
+  facet_wrap(.~species) + 
+  labs(x = 'Sex',y = 'Residuals') + 
+  theme_minimal()
+```
+
+```{r}
+peng.mod1 %>% 
+  augment() %>%
+  ggplot(aes(x = sex, y = body_mass_g)) +
+  geom_boxplot() + 
+  geom_point(aes(y = .fitted), color = 'red', size = 2) + 
+  facet_wrap(.~species) +
+  labs(x = 'Sex',y = 'Body Mass (g)') + 
+  theme_minimal()
+```
+
+
+```{r}
+peng.mod2 <- penguins %>% with(lm(body_mass_g ~ sex*species))
+summary(peng.mod2)
+glance(peng.mod2)
+tidy(peng.mod2)
+```
+```{r}
+peng.mod2 %>% 
+  augment() %>%
+  ggplot(aes(x = sex, y = .resid)) +
+  geom_boxplot() + 
+  facet_wrap(.~species) + 
+  labs(x = 'Sex',y = 'Residuals') + 
+  theme_minimal()
+```
+
+```{r}
+peng.mod2 %>% 
+  augment() %>%
+  ggplot(aes(x = sex, y = body_mass_g)) +
+  geom_boxplot() + 
+  geom_point(aes(y = .fitted), color = 'red', size = 2) + 
+  facet_wrap(.~species) +
+  labs(x = 'Sex',y = 'Body Mass (g)') + 
+  theme_minimal()
+```
+
+```{r}
+# Quantitative Predictors
+peng.mod3 <- penguins %>% with(lm(body_mass_g ~ bill_length_mm + bill_depth_mm + flipper_length_mm ))
+summary(peng.mod3)
+
+ggAVPLOTS(peng.mod3)
+```
+
+## Gapminder Model
+
+```{r}
+# Quantitative Predictors
+gapminder %>%
+  count(year)
+```
+```{r}
+gapminder %>% 
+  filter(year == 2007) %>%
+  ggplot(aes(x = gdpPercap, y = lifeExp)) +
+  geom_point() + 
+  labs(x = 'GDP per Capita',y = 'Life Expectancy') + 
+  theme_minimal()
+```
+```{r}
+gapminder %>% 
+  filter(year == 2007) %>%
+  ggplot(aes(x = log(gdpPercap), y = log(lifeExp))) +
+  geom_point() + 
+  labs(x = 'Log GDP per Capita',y = 'Log Life Expectancy') + 
+  theme_minimal()
+```
+```{r}
+gapminder %>% 
+  filter(year == 2007) %>%
+  ggplot(aes(x = log(gdpPercap), y = log(lifeExp), color = continent)) +
+  geom_point() + 
+  geom_smooth(se = FALSE, method='lm') + 
+  labs(x = 'Log GDP per Capita',y = 'Log Life Expectancy', color = 'Continent') + 
+  theme_minimal()
+```
+
+```{r}
+gapminder %>% 
+  filter(year == 2007) %>%
+  mutate(LowLifeExp = lifeExp < 67) %>%
+  ggplot(aes(x = log(gdpPercap), y = log(lifeExp), color = LowLifeExp)) +
+  geom_point() + 
+  geom_smooth(se = FALSE, method='lm') + 
+  labs(x = 'Log GDP per Capita',y = 'Log Life Expectancy') + 
+  theme_minimal()
+```
+
+```{r}
+gapminder %>% 
+  filter(year == 2007 & lifeExp < 57 & gdpPercap > 4500)
+```
+
+```{r}
+gapminder %>% 
+  filter(year == 2007 & !(lifeExp < 57 & gdpPercap > 4500)) %>%
+  mutate(LowLifeExp = lifeExp < 67) %>%
+  ggplot(aes(x = log(gdpPercap), y = log(lifeExp), color = LowLifeExp)) +
+  geom_point() + 
+  geom_smooth(se = FALSE, method='lm') + 
+  labs(x = 'Log GDP per Capita',y = 'Log Life Expectancy', title = 'Without 7 Countries with High GDP & Low Life Expectancy') + 
+  theme_minimal()
+```
+
+```{r}
+gap.mod1 <- gapminder %>% 
+  filter(year == 2007) %>%
+  mutate(LowLifeExp = lifeExp < 67, LogGDP = log(gdpPercap), LogLE = log(lifeExp)) %>%
+  with(lm(LogLE ~ LogGDP + LowLifeExp))
+summary(gap.mod1)
+glance(gap.mod1)
+tidy(gap.mod1)
+```
+
+```{r}
+gap.mod1 %>% 
+  augment() %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(x = 'Predicted',y = 'Residuals') + 
+  theme_minimal()
+```
+
+```{r}
+gap.mod1 %>%
+  augment() %>%
+  ggplot(aes(x = LogGDP, y = LogLE, color = LowLifeExp)) +
+  geom_point() + 
+  geom_line(aes(y = .fitted)) + 
+  labs(x = 'Log GDP per Capita',y = 'Log Life Expectancy') + 
+  theme_minimal()
+```
+```{r}
+gap.mod2 <- gapminder %>% 
+  filter(year == 2007) %>%
+  mutate(LowLifeExp = lifeExp < 67, LogGDP = log(gdpPercap), LogLE = log(lifeExp)) %>%
+  with(lm(LogLE ~ LogGDP*LowLifeExp))
+summary(gap.mod2)
+glance(gap.mod2)
+tidy(gap.mod2)
+```
+```{r}
+gap.mod2 %>% 
+  augment() %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(x = 'Predicted',y = 'Residuals') + 
+  theme_minimal()
+```
+
+```{r}
+gap.mod2 %>%
+  augment() %>%
+  ggplot(aes(x = LogGDP, y = LogLE, color = LowLifeExp)) +
+  geom_point() + 
+  geom_line(aes(y = .fitted)) + 
+  labs(x = 'Log GDP per Capita',y = 'Log Life Expectancy') + 
+  theme_minimal()
+```

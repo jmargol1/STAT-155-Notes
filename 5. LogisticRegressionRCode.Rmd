@@ -1,0 +1,209 @@
+---
+title: "Logistic Regression Models"
+author: "Kelsey Grinde"
+date: "Fall 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load Packages and Data
+
+In the Console, `install.packages('Stat2Data')`. Make sure it shows up in Packages pane.
+
+Then load this package, as well as a few others:
+
+```{r load-packages}
+library(Stat2Data)
+library(dplyr)
+library(ggplot2)
+library(ggmosaic)
+library(broom)
+```
+
+```{r load-data}
+data(Election16)
+head(Election16)
+```
+
+
+## Add some variables
+
+```{r add-variables}
+Election16 <- Election16 %>%
+  mutate(RepLean = ifelse(Dem.Rep < 0, 1, 0)) %>% # leaning Rep in 2015?
+  mutate(IncomeThous = Income/1000) # income in thousands of dollars
+```
+
+Look at data in console: `View(Election16)`.
+
+## TrumpWin vs RepLean
+
+First, visualize the relationship between `TrumpWin` and `RepLean` (both categorical) with a mosaic plot: 
+
+```{r viz1}
+# TrumpWin ~ RepLean
+Election16 %>%
+  mutate(TrumpWin = factor(TrumpWin), 
+         RepLean = factor(RepLean)) %>% # turn into factors for plotting
+  ggplot() + 
+  geom_mosaic(aes(x = product(TrumpWin, RepLean), fill = TrumpWin)) + 
+  labs(x = 'Lean based on 2015 Gallup Poll (1 = Republican, 0 = Democratic)',
+       y = 'Winning Candidate in 2016 (1 = Trump, 0 = Clinton)',
+       fill = '2016 Winning Candidate \n(1 = Trump, 0 = Clinton)')
+```
+
+
+Write down the equation for a simple logistic regression model:
+
+$$\log(Odds(TrumpWin = 1 \mid RepLean)) = \beta_0 + \beta_1 RepLean$$
+
+Fit the model in R using the `glm` function (specifying `family = binomial`): 
+
+```{r mod1}
+# fit model and save as "mod1"
+mod1 <- Election16 %>%
+  with(glm(TrumpWin ~ RepLean, family = binomial))
+
+# print out a tidy summary for mod1
+tidy(mod1)
+```
+
+
+Here's the fitted model: 
+
+$$\log(\widehat{Odds}(TrumpWin = 1 \mid RepLean)) = -1.099 + 2.708 RepLean$$
+
+Remember that we want to interpret the **exponentiated** coefficients so that we can talk about **odds** rather than log odds:
+
+$$\widehat{Odds}(TrumpWin = 1 \mid RepLean) = \left(e^{-1.099}\right) \times \left(e^{2.708}\right)^{RepLean}$$
+
+We can use R to get $e^{\hat{\beta}_0}, e^{\hat{\beta}_1}$:
+
+```{r mod1-exponentiate}
+# by hand
+exp(-1.099)
+exp(2.708)
+
+# or let R do it for you
+mod1 %>%
+  coef() %>%
+  exp()
+```
+
+$$\widehat{Odds}(TrumpWin = 1 \mid RepLean) = \left(0.33\right) \times \left(15.0\right)^{RepLean}$$
+
+
+What happens if you forget to say `family = binomial`? 
+
+```{r incorrect-model1}
+# if you forget family = binomial ...
+mod1b <- Election16 %>%
+  with(glm(TrumpWin ~ RepLean))
+tidy(mod1b)
+
+# ... you're fitting a linear regression model, not logistic!
+mod1c <- Election16 %>%
+  with(lm(TrumpWin ~ RepLean))
+tidy(mod1c)
+```
+
+
+
+## TrumpWin vs IncomeThous
+
+First, visualize the relationship between `TrumpWin` and `IncomeThous` (one categorical, one quantitative) with side-by-side boxplots:
+
+```{r viz2}
+# TrumpWin ~ IncomeThous
+Election16 %>%
+  mutate(TrumpWin = factor(TrumpWin)) %>% # turn into factor for plot
+  ggplot(aes(x = TrumpWin, y = IncomeThous)) +
+  geom_boxplot() + 
+  xlab('Winning Candidate in 2016 (1 = Trump, 0 = Clinton)') + 
+  ylab('Per Capita Income in Thousands of USD') + 
+  coord_flip() 
+```
+
+Write down the equation for a simple logistic regression model:
+
+$$\log(Odds(TrumpWin = 1 \mid IncomeThous)) = \beta_0 + \beta_1 IncomeThous$$
+
+Fit the model in R using the `glm` function (specifying `family = binomial`): 
+
+```{r mod2}
+# fit model and save as "mod2"
+mod2 <- Election16 %>%
+  with(glm(TrumpWin ~ IncomeThous, family = binomial))
+
+# print out a tidy summary for mod2
+tidy(mod2)
+```
+Here's the fitted model: 
+
+$$\log(\widehat{Odds}(TrumpWin = 1 \mid IncomeThous)) = 11.1819 - 0.1967 IncomeThous$$
+Remember that we want to interpret the **exponentiated** coefficients so that we can talk about **odds** rather than log odds:
+
+$$\widehat{Odds}(TrumpWin = 1 \mid IncomeThous) = \left(e^{11.1819}\right) \times \left(e^{-0.1967}\right)^{IncomeThous}$$
+
+We can use R to get $e^{\hat{\beta}_0}, e^{\hat{\beta}_1}$:
+
+```{r mod2-exponentiate}
+# by hand
+exp(11.1819)
+exp(-0.1967)
+
+# or let R do it for you
+mod2 %>%
+  coef() %>%
+  exp()
+```
+
+$$\widehat{Odds}(TrumpWin = 1 \mid IncomeThous) = \left(71816.2\right) \times \left(0.82\right)^{IncomeThous}$$
+
+What if we wanted to predict the probability of Trump winning in a state with a per capita income of 60 thousand USD?
+
+```{r predict-mod2}
+# by hand, starting with betas
+logodds <- 11.1819 - 0.1967 * 60
+exp(logodds)/(1 + exp(logodds))
+
+# by hand, starting with exp(betas)
+odds <- 71816.2 * 0.82^60
+odds/(1 + odds)
+
+# using the predict function
+predict(mod2, newdata = data.frame(IncomeThous = 60), type = 'response')
+```
+
+
+How can we visualize the model?
+
+```{r visualize-mod2}
+# using predict to get fitted values on scale of response
+Election16 %>%
+  mutate(TrumpWinHat = predict(mod2, type = 'response')) %>% 
+  ggplot(aes(x = IncomeThous, y = TrumpWin)) + # scatterplot Y ~ X
+  geom_point() + 
+  ylab('Winning Candidate in 2016 (1 = Trump, 0 = Clinton)') + 
+  xlab('Per Capita Income in Thousands of USD') + 
+  geom_line(aes(y = TrumpWinHat), color = 'darkorange') + # logistic model
+  geom_smooth(method = 'lm', se = F) # linear model
+
+
+# using augment to get fitted values on scale of logodds, then transform back
+augment(mod2) %>%
+  mutate(TrumpWinHat = exp(.fitted)/(1 + exp(.fitted))) %>% 
+  ggplot(aes(x = IncomeThous, y = TrumpWin)) + 
+  geom_point() + 
+  ylab('Winning Candidate in 2016 (1 = Trump, 0 = Clinton)') + 
+  xlab('Per Capita Income in Thousands of USD') + 
+  geom_line(aes(y = TrumpWinHat), color = 'darkorange') + # logistic model
+  geom_smooth(method = 'lm', se = F) # linear model
+```
+
+
+
